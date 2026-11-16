@@ -28,14 +28,43 @@ function scratchGift(){
   canvas.onpointermove=e=>{if(e.pointerId===pointer)scratch(e)};
   canvas.onlostpointercapture=()=>{pointer=null;previous=null};
 }
-async function startTest(){
+async function startTest() {
   await load();
-  if (!published.preview || published.products.length !== 24) return;
-  const all=published.products.slice(),label=document.createElement('label'),select=document.createElement('select');
-  label.textContent='Date du test  ';label.append(select);
-  document.querySelector('.calendar-meta').before(label);
-  for(let i=1;i<=24;i++){const option=new Option(i+' décembre',i);select.add(option)}
-  function change(){const day=Number(select.value);published.products=all.filter(p=>p.day<=day);published.today=day;document.querySelector('#preview').textContent='VERSION TEST · '+day+' décembre';document.querySelector('#publication').textContent=day+' cadeau'+(day>1?'x ouverts':' ouvert');render()}
-  select.onchange=change;change()
+  const live = published;
+  const select = document.querySelector('#simulation');
+  const names = ['Pinceau éventail','Miroir de poche','Éponge velours','Trousse satin','Pinceau poudre','Ruban de soie'];
+  for (let day=1; day<=24; day++) select.add(new Option(day+' décembre',day));
+  select.onchange = () => {
+    if (!select.value) { location.reload(); return; }
+    const day = Number(select.value);
+    published = {...live, today:day, products:Array.from({length:day},(_,index)=>{
+      const n=index+1;
+      return {day:n,nom:names[index%names.length],description:'Accessoire de démonstration de la collection de Noël.',offre:'Exemple pour tester le grattage',code:'ESSAI-'+String(n).padStart(2,'0'),illustration:'cadeau-demo.svg',lien:'https://www.sephora.fr/'};
+    })};
+    const banner=document.querySelector('#preview');
+    banner.hidden=false;
+    banner.textContent='Simulation du '+day+' décembre · Cadeaux et codes de démonstration';
+    document.querySelector('#publication').textContent=day+' / 24 cases disponibles';
+    document.querySelector('#ending').textContent='';
+    render();
+  };
 }
-
+const musicButton=document.querySelector('#music');
+let audio, interval;
+musicButton.onclick=async()=>{
+  if (audio) {
+    clearInterval(interval); const previous=audio;audio=null;await previous.close();
+    musicButton.textContent='♫ Activer la musique';musicButton.setAttribute('aria-pressed','false');return;
+  }
+  audio=new AudioContext();await audio.resume();
+  const chords=[[50,57,62,65,69],[46,53,58,62,65],[53,60,65,69,72],[48,55,60,64,67]];
+  let step=0;
+  function play(){
+    const chord=chords[Math.floor(step/8)%4], note=chord[[0,2,1,3,2,4,3,1][step%8]];
+    const t=audio.currentTime,osc=audio.createOscillator(),gain=audio.createGain();
+    osc.type='sine';osc.frequency.value=440*2**((note-69)/12);
+    gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(.075,t+.025);gain.gain.exponentialRampToValueAtTime(.0001,t+2.4);
+    osc.connect(gain).connect(audio.destination);osc.start();osc.stop(t+2.45);step++;
+  }
+  play();interval=setInterval(play,470);musicButton.textContent='♫ Couper la musique';musicButton.setAttribute('aria-pressed','true');
+};
